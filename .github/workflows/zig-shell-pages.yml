@@ -40,12 +40,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: zig-shell/package-lock.json
 
       - name: Install Node dependencies
         working-directory: zig-shell
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Zig WASI kernel
         working-directory: zig-shell

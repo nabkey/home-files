@@ -13,6 +13,9 @@ import { KernelBridge, isSharedArrayBufferAvailable } from "./io/bridge.js";
 // Import xterm.js CSS
 import "@xterm/xterm/css/xterm.css";
 
+// Declare build-time injected global
+declare const __APP_VERSION__: string;
+
 /**
  * Terminal configuration
  */
@@ -202,6 +205,12 @@ class ShellApp {
 
 // Wait for DOM to be ready
 document.addEventListener("DOMContentLoaded", async () => {
+  // Inject version into header
+  const versionEl = document.getElementById("app-version");
+  if (versionEl) {
+    versionEl.textContent = `v${__APP_VERSION__}`;
+  }
+
   const app = new ShellApp();
 
   try {

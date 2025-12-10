@@ -30,6 +30,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from git tags
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
 
       - name: Setup Zig
         uses: goto-bus-stop/setup-zig@v2
@@ -58,6 +68,7 @@ jobs:
         run: npm run build
         env:
           GITHUB_ACTIONS: true
+          APP_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

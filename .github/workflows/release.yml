@@ -38,12 +38,35 @@ jobs:
           echo "Building for linux/amd64..."
           GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/homestruct-linux-amd64 ./cmd/homestruct
 
-          # Generate checksums
-          echo "Generating checksums..."
-          cd dist && sha256sum * > checksums.txt
+          echo "Binaries built:"
+          ls -la dist/
 
-          echo "Build complete:"
-          ls -la
+      - name: Build for current platform (for config generation)
+        run: go build -ldflags="-s -w" -o homestruct ./cmd/homestruct
+
+      - name: Generate config archives
+        run: |
+          # Generate darwin configs
+          echo "Generating darwin configs..."
+          mkdir -p dist/configs-darwin
+          HOME=dist/configs-darwin HOMESTRUCT_OS=darwin HOMESTRUCT_ARCH=arm64 ./homestruct generate --force
+          tar -czf dist/configs-darwin.tar.gz -C dist/configs-darwin .
+          rm -rf dist/configs-darwin
+
+          # Generate linux configs
+          echo "Generating linux configs..."
+          mkdir -p dist/configs-linux
+          HOME=dist/configs-linux HOMESTRUCT_OS=linux HOMESTRUCT_ARCH=amd64 ./homestruct generate --force
+          tar -czf dist/configs-linux.tar.gz -C dist/configs-linux .
+          rm -rf dist/configs-linux
+
+          echo "Config archives built:"
+          ls -la dist/*.tar.gz
+
+      - name: Generate checksums
+        run: |
+          cd dist && sha256sum * > checksums.txt
+          cat checksums.txt
 
       - name: Get version
         id: version
@@ -59,6 +82,8 @@ jobs:
           files: |
             dist/homestruct-darwin-arm64
             dist/homestruct-linux-amd64
+            dist/configs-darwin.tar.gz
+            dist/configs-linux.tar.gz
             dist/checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

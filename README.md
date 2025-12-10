@@ -41,15 +41,20 @@ homestruct/
 
 ### Option 1: Install Script (Recommended)
 
-The easiest way to install homestruct is using the install script. It automatically detects your OS and architecture.
+The easiest way to install config files is using the install script. It downloads pre-generated configs for your OS and installs them to your home directory.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | sh
 ```
 
-**Install and immediately generate home files:**
+**Preview what will be installed (dry run):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_RUN_GENERATE=true sh
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_DRY_RUN=true sh
+```
+
+**Install without confirmation prompt:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_FORCE=true sh
 ```
 
 **Install a specific version:**
@@ -57,27 +62,27 @@ curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh |
 curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_VERSION=v1.0.0 sh
 ```
 
-**Install to a custom directory:**
+**Install without creating backups:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_INSTALL_DIR=~/bin sh
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_BACKUP=false sh
 ```
 
-### Option 2: From Release (Manual)
+### Option 2: Download Binary
 
-Download the binary for your architecture from the [Releases](https://github.com/nabkey/home-files/releases) page.
+For more control, download the `homestruct` binary and run it manually.
 
 **macOS (Apple Silicon):**
 ```bash
 curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-darwin-arm64
 chmod +x homestruct
-mv homestruct /usr/local/bin/
+./homestruct generate
 ```
 
 **Linux:**
 ```bash
 curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-linux-amd64
 chmod +x homestruct
-mv homestruct /usr/local/bin/
+./homestruct generate
 ```
 
 ### Option 3: Build from Source
@@ -202,24 +207,31 @@ git push origin v1.0.0
 This triggers the GitHub Actions release workflow which:
 1. Runs tests
 2. Builds binaries for darwin/arm64 and linux/amd64
-3. Generates SHA256 checksums
-4. Creates a GitHub release with all artifacts
+3. Generates pre-rendered config archives for each OS
+4. Generates SHA256 checksums
+5. Creates a GitHub release with all artifacts
 
 ### Manual Release Build
 
-You can also build release binaries locally using the Makefile:
+You can also build release artifacts locally using the Makefile:
 
 ```bash
-# Build both binaries to ./dist
+# Build binaries to ./dist
 make release
 
-# Build with checksums
+# Generate config archives to ./dist
+make release-configs
+
+# Generate checksums
 make release-checksums
 ```
 
-- `dist/homestruct-darwin-arm64` -> Copy to your Mac.
-- `dist/homestruct-linux-amd64` -> Copy to your Linux server/desktop.
-- `dist/checksums.txt` -> SHA256 checksums for verification.
+**Release artifacts:**
+- `dist/homestruct-darwin-arm64` - Binary for macOS
+- `dist/homestruct-linux-amd64` - Binary for Linux
+- `dist/configs-darwin.tar.gz` - Pre-rendered configs for macOS
+- `dist/configs-linux.tar.gz` - Pre-rendered configs for Linux
+- `dist/checksums.txt` - SHA256 checksums for verification
 
 ## Notes on Neovim
 

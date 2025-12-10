@@ -15,6 +15,8 @@ type Context struct {
 }
 
 // NewContext creates a new Context with system information.
+// Environment variables HOMESTRUCT_OS and HOMESTRUCT_ARCH can override
+// the detected values (useful for generating configs for other platforms).
 func NewContext() (*Context, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -26,9 +28,20 @@ func NewContext() (*Context, error) {
 		return nil, err
 	}
 
+	// Allow environment variable overrides for cross-platform config generation
+	osVal := os.Getenv("HOMESTRUCT_OS")
+	if osVal == "" {
+		osVal = runtime.GOOS
+	}
+
+	archVal := os.Getenv("HOMESTRUCT_ARCH")
+	if archVal == "" {
+		archVal = runtime.GOARCH
+	}
+
 	return &Context{
-		OS:   runtime.GOOS,
-		Arch: runtime.GOARCH,
+		OS:   osVal,
+		Arch: archVal,
 		Home: homeDir,
 		User: currentUser.Username,
 	}, nil

@@ -1,34 +1,36 @@
 #!/bin/sh
 #
-# homestruct installer script
+# homestruct config installer script
+#
+# Downloads pre-generated config files from GitHub releases and installs them
+# to your home directory.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | sh
 #
 # Options (via environment variables):
 #   HOMESTRUCT_VERSION  - Version to install (default: latest)
-#   HOMESTRUCT_INSTALL_DIR - Installation directory (default: /usr/local/bin or ~/.local/bin)
-#   HOMESTRUCT_RUN_GENERATE - Run 'homestruct generate' after install (default: false)
-#   HOMESTRUCT_DRY_RUN - Run 'homestruct generate --dry-run' after install (default: false)
+#   HOMESTRUCT_DRY_RUN  - Show what would be installed without making changes (default: false)
+#   HOMESTRUCT_BACKUP   - Backup existing files before overwriting (default: true)
+#   HOMESTRUCT_FORCE    - Overwrite without prompts (default: false)
 #
 # Examples:
-#   # Install latest version
+#   # Install latest configs
 #   curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | sh
+#
+#   # Preview what would be installed
+#   curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_DRY_RUN=true sh
 #
 #   # Install specific version
 #   curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_VERSION=v1.0.0 sh
 #
-#   # Install and run generate
-#   curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_RUN_GENERATE=true sh
-#
-#   # Install to custom directory
-#   curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_INSTALL_DIR=~/bin sh
+#   # Install without backup
+#   curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_BACKUP=false sh
 #
 
 set -e
 
 REPO="nabkey/home-files"
-BINARY_NAME="homestruct"
 
 # Colors for output
 RED='\033[0;31m'
@@ -71,22 +73,6 @@ detect_os() {
     esac
 }
 
-# Detect architecture
-detect_arch() {
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64|amd64)
-            echo "amd64"
-            ;;
-        arm64|aarch64)
-            echo "arm64"
-            ;;
-        *)
-            error "Unsupported architecture: $ARCH"
-            ;;
-    esac
-}
-
 # Get latest release version from GitHub API
 get_latest_version() {
     if command -v curl >/dev/null 2>&1; then
@@ -112,40 +98,32 @@ download() {
     fi
 }
 
-# Determine install directory
-get_install_dir() {
-    if [ -n "$HOMESTRUCT_INSTALL_DIR" ]; then
-        echo "$HOMESTRUCT_INSTALL_DIR"
-        return
-    fi
+# Backup a file
+backup_file() {
+    FILE="$1"
+    BACKUP_DIR="$2"
 
-    # Check if /usr/local/bin is writable
-    if [ -w "/usr/local/bin" ]; then
-        echo "/usr/local/bin"
-    else
-        # Fall back to ~/.local/bin
-        LOCAL_BIN="${HOME}/.local/bin"
-        mkdir -p "$LOCAL_BIN"
-        echo "$LOCAL_BIN"
+    if [ -e "$FILE" ]; then
+        REL_PATH="${FILE#$HOME/}"
+        BACKUP_PATH="${BACKUP_DIR}/${REL_PATH}"
+        mkdir -p "$(dirname "$BACKUP_PATH")"
+        cp -a "$FILE" "$BACKUP_PATH"
+        info "Backed up: $REL_PATH"
     fi
 }
 
 # Main installation function
 main() {
-    info "Starting homestruct installation..."
+    info "Starting homestruct config installation..."
+
+    # Parse options
+    DRY_RUN="${HOMESTRUCT_DRY_RUN:-false}"
+    DO_BACKUP="${HOMESTRUCT_BACKUP:-true}"
+    FORCE="${HOMESTRUCT_FORCE:-false}"
 
     # Detect system
     OS=$(detect_os)
-    ARCH=$(detect_arch)
-    info "Detected system: ${OS}/${ARCH}"
-
-    # Validate OS/ARCH combination
-    if [ "$OS" = "darwin" ] && [ "$ARCH" = "amd64" ]; then
-        warn "Intel Mac detected - using darwin-arm64 binary (Rosetta compatible)"
-        ARCH="arm64"
-    elif [ "$OS" = "linux" ] && [ "$ARCH" = "arm64" ]; then
-        error "Linux ARM64 is not currently supported. Only linux-amd64 is available."
-    fi
+    info "Detected OS: ${OS}"
 
     # Get version
     VERSION="${HOMESTRUCT_VERSION:-}"
@@ -159,77 +137,89 @@ main() {
     info "Version: ${VERSION}"
 
     # Build download URL
-    BINARY_FILENAME="${BINARY_NAME}-${OS}-${ARCH}"
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_FILENAME}"
+    ARCHIVE_NAME="configs-${OS}.tar.gz"
+    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE_NAME}"
     info "Download URL: ${DOWNLOAD_URL}"
 
     # Create temp directory
     TMP_DIR=$(mktemp -d)
     trap 'rm -rf "$TMP_DIR"' EXIT
 
-    # Download binary
-    info "Downloading ${BINARY_FILENAME}..."
-    TMP_BINARY="${TMP_DIR}/${BINARY_NAME}"
-    download "$DOWNLOAD_URL" "$TMP_BINARY"
+    # Download archive
+    info "Downloading ${ARCHIVE_NAME}..."
+    TMP_ARCHIVE="${TMP_DIR}/${ARCHIVE_NAME}"
+    download "$DOWNLOAD_URL" "$TMP_ARCHIVE"
 
-    # Make executable
-    chmod +x "$TMP_BINARY"
+    # Extract to temp location for inspection
+    EXTRACT_DIR="${TMP_DIR}/extracted"
+    mkdir -p "$EXTRACT_DIR"
+    tar -xzf "$TMP_ARCHIVE" -C "$EXTRACT_DIR"
 
-    # Verify binary works
-    info "Verifying binary..."
-    if ! "$TMP_BINARY" help >/dev/null 2>&1; then
-        error "Downloaded binary failed verification"
-    fi
-
-    # Determine install location
-    INSTALL_DIR=$(get_install_dir)
-    INSTALL_PATH="${INSTALL_DIR}/${BINARY_NAME}"
-
-    # Check if we need sudo
-    NEED_SUDO=""
-    if [ ! -w "$INSTALL_DIR" ]; then
-        if command -v sudo >/dev/null 2>&1; then
-            NEED_SUDO="sudo"
-            info "Installing to ${INSTALL_PATH} (requires sudo)..."
+    # List files to be installed
+    info "Files to be installed:"
+    cd "$EXTRACT_DIR"
+    find . -type f | while read -r file; do
+        REL_PATH="${file#./}"
+        DEST="${HOME}/${REL_PATH}"
+        if [ -e "$DEST" ]; then
+            printf "  ${YELLOW}[UPDATE]${NC} %s\n" "$REL_PATH"
         else
-            error "Cannot write to ${INSTALL_DIR} and sudo is not available"
+            printf "  ${GREEN}[CREATE]${NC} %s\n" "$REL_PATH"
         fi
-    else
-        info "Installing to ${INSTALL_PATH}..."
+    done
+
+    # Dry run - stop here
+    if [ "$DRY_RUN" = "true" ]; then
+        echo ""
+        info "Dry run complete. No files were modified."
+        exit 0
     fi
 
-    # Install binary
-    $NEED_SUDO mv "$TMP_BINARY" "$INSTALL_PATH"
-
-    success "homestruct ${VERSION} installed successfully to ${INSTALL_PATH}"
-
-    # Check if install dir is in PATH
-    case ":$PATH:" in
-        *":${INSTALL_DIR}:"*)
-            ;;
-        *)
-            warn "${INSTALL_DIR} is not in your PATH"
-            warn "Add it with: export PATH=\"${INSTALL_DIR}:\$PATH\""
-            ;;
-    esac
-
-    # Run generate if requested
-    if [ "${HOMESTRUCT_RUN_GENERATE:-false}" = "true" ]; then
-        info "Running 'homestruct generate'..."
-        "$INSTALL_PATH" generate
-        success "Home files generated successfully!"
-    elif [ "${HOMESTRUCT_DRY_RUN:-false}" = "true" ]; then
-        info "Running 'homestruct generate --dry-run'..."
-        "$INSTALL_PATH" generate --dry-run
+    # Confirm installation (unless forced)
+    if [ "$FORCE" != "true" ]; then
+        echo ""
+        printf "Proceed with installation? [y/N] "
+        read -r CONFIRM
+        case "$CONFIRM" in
+            [yY]|[yY][eE][sS])
+                ;;
+            *)
+                info "Installation cancelled."
+                exit 0
+                ;;
+        esac
     fi
+
+    # Create backup directory if needed
+    if [ "$DO_BACKUP" = "true" ]; then
+        BACKUP_DIR="${HOME}/.homestruct-backup/$(date +%Y%m%d-%H%M%S)"
+        info "Backup directory: ${BACKUP_DIR}"
+    fi
+
+    # Install files
+    cd "$EXTRACT_DIR"
+    find . -type f | while read -r file; do
+        REL_PATH="${file#./}"
+        DEST="${HOME}/${REL_PATH}"
+
+        # Backup existing file
+        if [ "$DO_BACKUP" = "true" ] && [ -e "$DEST" ]; then
+            backup_file "$DEST" "$BACKUP_DIR"
+        fi
+
+        # Create parent directory
+        mkdir -p "$(dirname "$DEST")"
+
+        # Copy file
+        cp -a "$file" "$DEST"
+        success "Installed: ${REL_PATH}"
+    done
 
     echo ""
     success "Installation complete!"
-    echo ""
-    echo "Next steps:"
-    echo "  1. Preview changes:  homestruct generate --dry-run"
-    echo "  2. Apply changes:    homestruct generate"
-    echo ""
+    if [ "$DO_BACKUP" = "true" ] && [ -d "$BACKUP_DIR" ]; then
+        info "Backups stored in: ${BACKUP_DIR}"
+    fi
 }
 
 main "$@"

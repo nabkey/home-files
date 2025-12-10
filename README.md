@@ -17,21 +17,25 @@ Unlike traditional dotfile managers that rely on symlinks (GNU Stow) or complex 
 homestruct/
 ├── cmd/
 │   └── homestruct/
-│       └── main.go         # Entry point, CLI logic
-├── templates/              # The raw source of truth
-│   ├── nvim/
-│   │   ├── init.lua
-│   │   └── lua/            # Recursive Lua folders
-│   ├── zellij/
-│   │   └── config.kdl.tmpl # Templated for Mac/Linux keybinds
-│   ├── zsh/
-│   │   ├── .zshrc.tmpl
-│   │   └── aliases.zsh.tmpl
-│   └── git/
-│       └── .gitconfig.tmpl
+│       ├── main.go         # Entry point, CLI logic
+│       └── templates/      # Embedded templates (go:embed)
+│           ├── nvim/
+│           │   ├── init.lua
+│           │   └── lua/    # Lua config modules
+│           ├── zellij/
+│           │   └── config.kdl.tmpl
+│           ├── zsh/
+│           │   ├── .zshrc.tmpl
+│           │   └── aliases.zsh.tmpl
+│           └── git/
+│               └── .gitconfig.tmpl
 ├── pkg/
 │   ├── generator/          # Logic for rendering templates
 │   └── backup/             # Logic for backing up existing files
+├── .github/
+│   └── workflows/
+│       └── release.yml     # GitHub Actions release automation
+├── install.sh              # One-line install script
 ├── go.mod
 ├── Makefile
 └── README.md
@@ -39,32 +43,67 @@ homestruct/
 
 ## Installation
 
-### Option 1: From Release (Recommended)
+### Option 1: Install Script (Recommended)
+
+The easiest way to install homestruct is using the install script. It automatically detects your OS and architecture, downloads the appropriate binary, and installs it.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | sh
+```
+
+**Customization options:**
+
+```bash
+# Install a specific version
+HOMESTRUCT_VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | sh
+
+# Install to a custom directory
+HOMESTRUCT_INSTALL=~/bin curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | sh
+```
+
+### Option 2: Manual Download
 
 Download the binary for your architecture from the [Releases](https://github.com/nabkey/home-files/releases) page.
 
 **macOS (Apple Silicon):**
 ```bash
-curl -L -o homestruct https://github.com/nabkey/home-files/releases/download/v1.0.0/homestruct-darwin-arm64
+curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-darwin-arm64
 chmod +x homestruct
-mv homestruct /usr/local/bin/
+sudo mv homestruct /usr/local/bin/
 ```
 
-**Linux:**
+**macOS (Intel):**
 ```bash
-curl -L -o homestruct https://github.com/nabkey/home-files/releases/download/v1.0.0/homestruct-linux-amd64
+curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-darwin-amd64
 chmod +x homestruct
-mv homestruct /usr/local/bin/
+sudo mv homestruct /usr/local/bin/
 ```
 
-### Option 2: Build from Source
+**Linux (x86_64):**
+```bash
+curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-linux-amd64
+chmod +x homestruct
+sudo mv homestruct /usr/local/bin/
+```
+
+**Linux (ARM64):**
+```bash
+curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-linux-arm64
+chmod +x homestruct
+sudo mv homestruct /usr/local/bin/
+```
+
+### Option 3: Build from Source
 
 Requires Go 1.23+.
 
 ```bash
 git clone https://github.com/nabkey/home-files
 cd home-files
-go build -o homestruct ./cmd/homestruct
+make build
+sudo make install
+# Or install to ~/.local/bin without sudo:
+make install-local
 ```
 
 ## Usage
@@ -166,15 +205,26 @@ var FileMappings = map[string]string{
 
 ## Release Workflow
 
-We use a Makefile to generate separate binaries for Mac and Linux.
+Releases are automated via GitHub Actions. When you push a tag, binaries are automatically built and published.
 
 ```bash
-# Build both binaries to ./dist
+# Create and push a new release tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+For local development, use the Makefile:
+
+```bash
+# Build all release binaries to ./dist
 make release
 ```
 
-- `dist/homestruct-darwin-arm64` -> Copy to your Mac.
-- `dist/homestruct-linux-amd64` -> Copy to your Linux server/desktop.
+This creates:
+- `dist/homestruct-darwin-arm64` - macOS Apple Silicon
+- `dist/homestruct-darwin-amd64` - macOS Intel
+- `dist/homestruct-linux-amd64` - Linux x86_64
+- `dist/homestruct-linux-arm64` - Linux ARM64
 
 ## Notes on Neovim
 

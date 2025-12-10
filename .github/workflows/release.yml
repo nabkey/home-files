@@ -2,31 +2,111 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Create Release
+    name: Semantic Release
     runs-on: ubuntu-latest
+    outputs:
+      new_release: ${{ steps.semantic.outputs.new_release }}
+      version: ${{ steps.semantic.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Calculate semantic version
+        id: semantic
+        run: |
+          # Get the latest tag (or default to v0.0.0 if none exists)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Extract version numbers
+          VERSION=${LATEST_TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+
+          # Get commits since last tag
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            COMMITS=$(git log --pretty=format:"%s" HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"%s" ${LATEST_TAG}..HEAD)
+          fi
+
+          # Check if there are any commits
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits since last release"
+            echo "new_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Commits since last release:"
+          echo "$COMMITS"
+          echo ""
+
+          # Determine version bump based on conventional commits
+          BUMP="none"
+
+          # Check for breaking changes (major bump)
+          if echo "$COMMITS" | grep -qiE "^.*!:|BREAKING CHANGE"; then
+            BUMP="major"
+          # Check for features (minor bump)
+          elif echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:"; then
+            BUMP="minor"
+          # Check for fixes or other changes (patch bump)
+          elif echo "$COMMITS" | grep -qiE "^(fix|perf|refactor|docs|style|test|chore|build|ci)(\(.*\))?:"; then
+            BUMP="patch"
+          fi
+
+          if [ "$BUMP" = "none" ]; then
+            echo "No conventional commits found that warrant a release"
+            echo "new_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Calculate new version
+          case $BUMP in
+            major)
+              NEW_MAJOR=$((MAJOR + 1))
+              NEW_VERSION="${NEW_MAJOR}.0.0"
+              ;;
+            minor)
+              NEW_MINOR=$((MINOR + 1))
+              NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
+              ;;
+            patch)
+              NEW_PATCH=$((PATCH + 1))
+              NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+              ;;
+          esac
+
+          echo "Version bump: $BUMP"
+          echo "New version: v${NEW_VERSION}"
+
+          echo "new_release=true" >> $GITHUB_OUTPUT
+          echo "version=v${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+
       - name: Setup Go
+        if: steps.semantic.outputs.new_release == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
 
       - name: Run tests
+        if: steps.semantic.outputs.new_release == 'true'
         run: go test -v ./...
 
       - name: Build release binaries
+        if: steps.semantic.outputs.new_release == 'true'
         run: |
           mkdir -p dist
 
@@ -42,9 +122,11 @@ jobs:
           ls -la dist/
 
       - name: Build for current platform (for config generation)
+        if: steps.semantic.outputs.new_release == 'true'
         run: go build -ldflags="-s -w" -o homestruct ./cmd/homestruct
 
       - name: Generate config archives
+        if: steps.semantic.outputs.new_release == 'true'
         run: |
           # Generate darwin configs
           echo "Generating darwin configs..."
@@ -64,18 +146,25 @@ jobs:
           ls -la dist/*.tar.gz
 
       - name: Generate checksums
+        if: steps.semantic.outputs.new_release == 'true'
         run: |
           cd dist && sha256sum * > checksums.txt
           cat checksums.txt
 
-      - name: Get version
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Create tag
+        if: steps.semantic.outputs.new_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ steps.semantic.outputs.version }} -m "Release ${{ steps.semantic.outputs.version }}"
+          git push origin ${{ steps.semantic.outputs.version }}
 
       - name: Create Release
+        if: steps.semantic.outputs.new_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          name: homestruct ${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ steps.semantic.outputs.version }}
+          name: homestruct ${{ steps.semantic.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: true

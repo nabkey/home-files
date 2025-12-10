@@ -2,6 +2,15 @@
 /homestruct
 /dist/
 
+# Zig build artifacts
+zig-shell/zig-cache/
+zig-shell/zig-out/
+zig-shell/.zig-cache/
+
+# Node.js
+zig-shell/node_modules/
+zig-shell/dist/
+
 # IDE
 .idea/
 .vscode/

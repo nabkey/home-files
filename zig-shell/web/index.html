@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZigShell - Browser-based Shell</title>
+    <meta name="description" content="A browser-based shell environment powered by Zig and WebAssembly" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐚</text></svg>" />
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg-primary: #1e1e2e;
+        --bg-secondary: #181825;
+        --text-primary: #cdd6f4;
+        --text-secondary: #a6adc8;
+        --accent: #89b4fa;
+        --border: #313244;
+      }
+
+      html, body {
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 1rem;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        margin-bottom: 1rem;
+        background: var(--bg-primary);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+
+      .logo-icon {
+        font-size: 1.5rem;
+      }
+
+      .logo-text {
+        color: var(--accent);
+      }
+
+      .version {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-weight: normal;
+      }
+
+      nav {
+        display: flex;
+        gap: 1rem;
+      }
+
+      nav a {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: color 0.2s;
+      }
+
+      nav a:hover {
+        color: var(--accent);
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .terminal-container {
+        flex: 1;
+        background: var(--bg-primary);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .terminal-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .terminal-buttons {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .terminal-button {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+
+      .terminal-button.close { background: #f38ba8; }
+      .terminal-button.minimize { background: #f9e2af; }
+      .terminal-button.maximize { background: #a6e3a1; }
+
+      .terminal-title {
+        flex: 1;
+        text-align: center;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+      }
+
+      #terminal {
+        flex: 1;
+        padding: 0.5rem;
+      }
+
+      footer {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        text-align: center;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+      }
+
+      footer a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* Loading overlay */
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--bg-secondary);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        transition: opacity 0.3s;
+      }
+
+      .loading-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      .loading-text {
+        margin-top: 1rem;
+        color: var(--text-secondary);
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .container {
+          padding: 0.5rem;
+        }
+
+        header {
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        nav {
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loading">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading ZigShell...</div>
+    </div>
+
+    <div class="container">
+      <header>
+        <div class="logo">
+          <span class="logo-icon">🐚</span>
+          <span class="logo-text">ZigShell</span>
+          <span class="version">v1.0.0</span>
+        </div>
+        <nav>
+          <a href="https://github.com/nabkey/home-files" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://ziglang.org/" target="_blank" rel="noopener">Zig</a>
+          <a href="https://webassembly.org/" target="_blank" rel="noopener">WebAssembly</a>
+        </nav>
+      </header>
+
+      <main>
+        <div class="terminal-container">
+          <div class="terminal-header">
+            <div class="terminal-buttons">
+              <div class="terminal-button close"></div>
+              <div class="terminal-button minimize"></div>
+              <div class="terminal-button maximize"></div>
+            </div>
+            <div class="terminal-title">user@zigshell ~ </div>
+          </div>
+          <div id="terminal"></div>
+        </div>
+      </main>
+
+      <footer>
+        <p>
+          Powered by <a href="https://ziglang.org/" target="_blank" rel="noopener">Zig</a> and
+          <a href="https://webassembly.org/" target="_blank" rel="noopener">WebAssembly</a> |
+          Part of <a href="https://github.com/nabkey/home-files" target="_blank" rel="noopener">homestruct</a>
+        </p>
+      </footer>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+    <script>
+      // Hide loading overlay once the app is ready
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          document.getElementById('loading').classList.add('hidden');
+        }, 500);
+      });
+    </script>
+  </body>
+</html>

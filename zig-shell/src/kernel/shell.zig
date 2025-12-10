@@ -164,9 +164,9 @@ pub const Shell = struct {
         var exit_code: u8 = 0;
 
         if (args.len > 1) {
-            exit_code = std.fmt.parseInt(u8, args[1], 10) catch {
+            exit_code = std.fmt.parseInt(u8, args[1], 10) catch blk: {
                 try writer.print("exit: numeric argument required\n", .{});
-                exit_code = 2;
+                break :blk 2;
             };
         }
 

@@ -1,0 +1,33 @@
+{
+  "name": "zig-shell",
+  "version": "1.0.0",
+  "description": "Browser-based Zig shell with WASI kernel and virtual filesystem",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:wasm": "zig build",
+    "clean": "rm -rf dist node_modules zig-out zig-cache",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-webgl": "^0.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  },
+  "keywords": [
+    "shell",
+    "terminal",
+    "zig",
+    "wasi",
+    "webassembly",
+    "browser"
+  ],
+  "author": "",
+  "license": "MIT"
+}

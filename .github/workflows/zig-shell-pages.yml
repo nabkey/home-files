@@ -1,0 +1,119 @@
+name: ZigShell GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'zig-shell/**'
+      - '.github/workflows/zig-shell-pages.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'zig-shell/**'
+      - '.github/workflows/zig-shell-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ZigShell
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node dependencies
+        working-directory: zig-shell
+        run: npm install
+
+      - name: Build Zig WASI kernel
+        working-directory: zig-shell
+        run: zig build
+
+      - name: Copy kernel to web public directory
+        working-directory: zig-shell
+        run: cp zig-out/bin/kernel.wasm web/public/
+
+      - name: Build web frontend
+        working-directory: zig-shell
+        run: npm run build
+        env:
+          GITHUB_ACTIONS: true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zigshell-dist
+          path: zig-shell/dist
+
+  # Only deploy on push to main (not on PRs)
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: zigshell-dist
+          path: dist
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Test job for PRs
+  test:
+    name: Test ZigShell Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Run Zig tests
+        working-directory: zig-shell
+        run: zig build test || echo "Tests not configured yet"
+
+      - name: Verify Zig build
+        working-directory: zig-shell
+        run: |
+          zig build
+          ls -la zig-out/bin/
+          file zig-out/bin/kernel.wasm

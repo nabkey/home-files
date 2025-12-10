@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Build release binaries
+        run: |
+          mkdir -p dist
+
+          # Build for darwin/arm64 (Apple Silicon)
+          echo "Building for darwin/arm64..."
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/homestruct-darwin-arm64 ./cmd/homestruct
+
+          # Build for linux/amd64
+          echo "Building for linux/amd64..."
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/homestruct-linux-amd64 ./cmd/homestruct
+
+          # Generate checksums
+          echo "Generating checksums..."
+          cd dist && sha256sum * > checksums.txt
+
+          echo "Build complete:"
+          ls -la
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: homestruct ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/homestruct-darwin-arm64
+            dist/homestruct-linux-amd64
+            dist/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

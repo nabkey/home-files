@@ -39,25 +39,48 @@ homestruct/
 
 ## Installation
 
-### Option 1: From Release (Recommended)
+### Option 1: Install Script (Recommended)
+
+The easiest way to install homestruct is using the install script. It automatically detects your OS and architecture.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | sh
+```
+
+**Install and immediately generate home files:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_RUN_GENERATE=true sh
+```
+
+**Install a specific version:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_VERSION=v1.0.0 sh
+```
+
+**Install to a custom directory:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/nabkey/home-files/main/install.sh | HOMESTRUCT_INSTALL_DIR=~/bin sh
+```
+
+### Option 2: From Release (Manual)
 
 Download the binary for your architecture from the [Releases](https://github.com/nabkey/home-files/releases) page.
 
 **macOS (Apple Silicon):**
 ```bash
-curl -L -o homestruct https://github.com/nabkey/home-files/releases/download/v1.0.0/homestruct-darwin-arm64
+curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-darwin-arm64
 chmod +x homestruct
 mv homestruct /usr/local/bin/
 ```
 
 **Linux:**
 ```bash
-curl -L -o homestruct https://github.com/nabkey/home-files/releases/download/v1.0.0/homestruct-linux-amd64
+curl -L -o homestruct https://github.com/nabkey/home-files/releases/latest/download/homestruct-linux-amd64
 chmod +x homestruct
 mv homestruct /usr/local/bin/
 ```
 
-### Option 2: Build from Source
+### Option 3: Build from Source
 
 Requires Go 1.23+.
 
@@ -166,15 +189,37 @@ var FileMappings = map[string]string{
 
 ## Release Workflow
 
-We use a Makefile to generate separate binaries for Mac and Linux.
+### Automated Releases (GitHub Actions)
+
+Releases are automatically built and published when you push a version tag:
+
+```bash
+# Create and push a version tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This triggers the GitHub Actions release workflow which:
+1. Runs tests
+2. Builds binaries for darwin/arm64 and linux/amd64
+3. Generates SHA256 checksums
+4. Creates a GitHub release with all artifacts
+
+### Manual Release Build
+
+You can also build release binaries locally using the Makefile:
 
 ```bash
 # Build both binaries to ./dist
 make release
+
+# Build with checksums
+make release-checksums
 ```
 
 - `dist/homestruct-darwin-arm64` -> Copy to your Mac.
 - `dist/homestruct-linux-amd64` -> Copy to your Linux server/desktop.
+- `dist/checksums.txt` -> SHA256 checksums for verification.
 
 ## Notes on Neovim
 

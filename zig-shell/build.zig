@@ -23,7 +23,7 @@ pub fn build(b: *std.Build) void {
     // Define the kernel executable
     const kernel = b.addExecutable(.{
         .name = "kernel",
-        .root_source_file = b.path("src/kernel/main.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) void {
 
     // Add unit tests
     const unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/kernel/main.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = b.host,
         .optimize = optimize,
     });

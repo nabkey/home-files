@@ -192,7 +192,7 @@ test "shell initialization" {
     var fs = try VFS.init(allocator);
     defer fs.deinit();
 
-    var shell = Shell.init(allocator, &fs);
+    const shell = Shell.init(allocator, &fs);
     try std.testing.expect(shell.running);
     try std.testing.expectEqual(@as(u8, 0), shell.last_exit_code);
 }

@@ -1,8 +1,6 @@
-// src/kernel/main.zig - Kernel Entry Point (WASI _start)
+// src/kernel/entry.zig - Kernel Entry Point
 //
-// This is the main entry point for the ZigShell WASI kernel.
-// It initializes the Virtual Filesystem, creates the shell instance,
-// and runs the REPL loop.
+// This module contains the main kernel initialization and run logic.
 
 const std = @import("std");
 const vfs = @import("../vfs/root.zig");
@@ -13,7 +11,7 @@ const Shell = @import("shell.zig").Shell;
 /// Using GeneralPurposeAllocator for development with leak detection
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
-pub fn main() !void {
+pub fn run() !void {
     const allocator = gpa.allocator();
     defer {
         const leaked = gpa.deinit();
@@ -32,10 +30,6 @@ pub fn main() !void {
 }
 
 // Re-export modules for testing
-pub const inode = @import("../vfs/inode.zig");
-pub const fs_module = @import("../vfs/fs.zig");
-pub const root = @import("../vfs/root.zig");
-pub const tokenizer = @import("../utils/tokenizer.zig");
 pub const commands = @import("commands.zig");
 pub const shell = @import("shell.zig");
 
@@ -50,7 +44,7 @@ test "kernel initialization" {
     try std.testing.expect(fs.exists("/home/user"));
     try std.testing.expect(fs.exists("/etc/os-release"));
 
-    var test_shell = Shell.init(allocator, &fs);
+    const test_shell = Shell.init(allocator, &fs);
     try std.testing.expect(test_shell.isRunning());
 }
 
@@ -86,9 +80,4 @@ test "full command execution flow" {
 
     _ = try test_shell.execute("pwd", output.writer().any());
     try std.testing.expect(std.mem.indexOf(u8, output.items, "testdir") != null);
-}
-
-// Run all sub-module tests
-test {
-    std.testing.refAllDecls(@This());
 }

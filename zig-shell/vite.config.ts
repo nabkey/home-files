@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
+import pkg from "./package.json";
 
 // Base path configuration:
 // - Development: /
@@ -64,6 +65,7 @@ export default defineConfig({
   // Define globals
   define: {
     __DEV__: JSON.stringify(process.env.NODE_ENV !== "production"),
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
 
   // Resolve aliases

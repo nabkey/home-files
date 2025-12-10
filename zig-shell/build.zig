@@ -31,11 +31,11 @@ pub fn build(b: *std.Build) void {
     // Export memory for JavaScript access
     kernel.export_memory = true;
 
-    // Set initial memory size (2MB = 32 pages of 64KB each)
-    kernel.initial_memory = 32 * 64 * 1024;
+    // Set initial memory size (32MB = 512 pages of 64KB each)
+    kernel.initial_memory = 512 * 64 * 1024;
 
     // Allow memory growth for VFS expansion
-    kernel.max_memory = 256 * 64 * 1024; // 16MB max
+    kernel.max_memory = 1024 * 64 * 1024; // 64MB max
 
     // Output artifact location: zig-out/bin/kernel.wasm
     b.installArtifact(kernel);

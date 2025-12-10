@@ -72,3 +72,50 @@ Always test template changes with `--dry-run --verbose` before applying to verif
 1. Correct file paths are targeted
 2. Template variables render correctly for both darwin and linux
 3. No syntax errors in templates
+
+## Commit Convention & Releases
+
+This project uses **semantic releases** triggered automatically on merge to `main`. Use conventional commit format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+### Commit Types
+
+| Type | Release | Description |
+|------|---------|-------------|
+| `feat` | Minor | New feature or template |
+| `fix` | Patch | Bug fix |
+| `perf` | Patch | Performance improvement |
+| `refactor` | Patch | Code refactoring |
+| `docs` | Patch | Documentation only |
+| `test` | Patch | Adding/updating tests |
+| `chore` | Patch | Maintenance tasks |
+| `build` | Patch | Build system changes |
+| `ci` | Patch | CI/CD changes |
+
+### Breaking Changes
+
+For major version bumps, use either:
+- `feat!: description` (with `!` suffix)
+- Include `BREAKING CHANGE:` in commit footer
+
+### Examples
+
+```bash
+# Feature (minor bump)
+git commit -m "feat(zsh): add fzf integration aliases"
+
+# Bug fix (patch bump)
+git commit -m "fix(nvim): correct treesitter config path"
+
+# Breaking change (major bump)
+git commit -m "feat!: change template variable names"
+```
+
+Commits without conventional prefixes will not trigger a release.

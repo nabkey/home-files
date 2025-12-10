@@ -194,22 +194,38 @@ var FileMappings = map[string]string{
 
 ## Release Workflow
 
-### Automated Releases (GitHub Actions)
+### Semantic Releases
 
-Releases are automatically built and published when you push a version tag:
+This project uses **semantic versioning** with automatic releases. When a PR is merged to `main`, the release workflow analyzes commit messages and automatically creates a new release if warranted.
 
-```bash
-# Create and push a version tag
-git tag v1.0.0
-git push origin v1.0.0
-```
+#### Conventional Commits
 
-This triggers the GitHub Actions release workflow which:
-1. Runs tests
-2. Builds binaries for darwin/arm64 and linux/amd64
-3. Generates pre-rendered config archives for each OS
-4. Generates SHA256 checksums
-5. Creates a GitHub release with all artifacts
+Use [Conventional Commits](https://www.conventionalcommits.org/) format for your commit messages:
+
+| Prefix | Version Bump | Example |
+|--------|--------------|---------|
+| `feat:` | Minor (1.0.0 → 1.1.0) | `feat: add starship prompt config` |
+| `fix:` | Patch (1.0.0 → 1.0.1) | `fix: correct zsh path on linux` |
+| `perf:` | Patch | `perf: optimize template rendering` |
+| `docs:` | Patch | `docs: update installation guide` |
+| `chore:` | Patch | `chore: update dependencies` |
+| `refactor:` | Patch | `refactor: simplify backup logic` |
+| `test:` | Patch | `test: add generator tests` |
+| `build:` | Patch | `build: update go version` |
+| `ci:` | Patch | `ci: add linting step` |
+| `feat!:` or `BREAKING CHANGE:` | Major (1.0.0 → 2.0.0) | `feat!: redesign template system` |
+
+#### How It Works
+
+1. Merge a PR to `main` with conventional commit messages
+2. The release workflow automatically:
+   - Analyzes commits since the last release tag
+   - Determines the appropriate version bump
+   - Runs tests and builds artifacts
+   - Creates a git tag (e.g., `v1.2.0`)
+   - Publishes a GitHub release with binaries and configs
+
+If no conventional commits are found, no release is created.
 
 ### Manual Release Build
 

@@ -27,8 +27,8 @@ pub fn main() !void {
     defer fs.deinit();
 
     // Initialize and run the shell
-    var shell = Shell.init(allocator, &fs);
-    try shell.run();
+    var sh = Shell.init(allocator, &fs);
+    try sh.run();
 }
 
 // Re-export modules for testing

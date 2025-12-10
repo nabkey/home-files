@@ -81,6 +81,9 @@ class ShellApp {
     this.terminal.open(container);
     this.fitAddon.fit();
 
+    // Re-fit after a short delay to handle mobile layout stabilization
+    setTimeout(() => this.fitAddon.fit(), 100);
+
     // Try to load WebGL addon for better performance
     try {
       const webglAddon = new WebglAddon();
@@ -134,6 +137,13 @@ class ShellApp {
     window.addEventListener("resize", () => {
       this.fitAddon.fit();
     });
+
+    // Handle mobile viewport changes (keyboard, address bar)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", () => {
+        this.fitAddon.fit();
+      });
+    }
   }
 
   /**

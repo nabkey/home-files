@@ -130,7 +130,22 @@ class ShellApp {
     // Handle terminal input
     this.terminal.onData((data) => {
       if (this.isReady && this.bridge) {
-        // Convert Enter key to newline
+        // Local echo: display what the user types
+        for (const char of data) {
+          if (char === "\r") {
+            // Enter key: move to new line
+            this.terminal.write("\r\n");
+          } else if (char === "\x7f" || char === "\b") {
+            // Backspace: move cursor back, overwrite with space, move back again
+            this.terminal.write("\b \b");
+          } else if (char >= " " || char === "\t") {
+            // Printable characters and tab: echo as-is
+            this.terminal.write(char);
+          }
+          // Control characters (except handled above) are not echoed
+        }
+
+        // Send input to kernel
         const converted = data.replace("\r", "\n");
         this.bridge.write(converted);
       }

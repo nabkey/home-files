@@ -4,8 +4,8 @@ import pkg from "./package.json";
 
 // Base path configuration:
 // - Development: /
-// - GitHub Pages: /home-files/zig-shell/
-const base = process.env.GITHUB_ACTIONS ? "/home-files/zig-shell/" : "/";
+// - GitHub Pages: /home-files/ (repo name, since dist is deployed to Pages root)
+const base = process.env.GITHUB_ACTIONS ? "/home-files/" : "/";
 
 export default defineConfig({
   // Root directory for the web app

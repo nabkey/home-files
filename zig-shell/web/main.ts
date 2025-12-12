@@ -180,7 +180,9 @@ class ShellApp {
 
     try {
       // Start the kernel with the WASM file path
-      await this.bridge.start("/kernel.wasm");
+      // Use Vite's BASE_URL to handle deployment to subdirectories
+      const kernelPath = `${import.meta.env.BASE_URL}kernel.wasm`;
+      await this.bridge.start(kernelPath);
     } catch (error) {
       this.terminal.writeln(
         `\x1b[1;31mFailed to start kernel: ${error}\x1b[0m`

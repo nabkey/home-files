@@ -127,10 +127,11 @@ class ShellApp {
    * Set up terminal event handlers
    */
   private setupTerminal(): void {
-    // Handle terminal input
+    // Handle terminal input - kernel handles echo
     this.terminal.onData((data) => {
       if (this.isReady && this.bridge) {
-        // Convert Enter key to newline
+        // Convert Enter key to newline and send to kernel
+        // The kernel echoes input back to stdout
         const converted = data.replace("\r", "\n");
         this.bridge.write(converted);
       }

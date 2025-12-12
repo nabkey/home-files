@@ -47,32 +47,69 @@ pub const Shell = struct {
 
         // Command line buffer
         var buffer: [4096]u8 = undefined;
+        var buf_len: usize = 0;
 
         while (self.running) {
             // Generate and print prompt
             try self.printPrompt(stdout);
 
-            // Read input line
-            const line = stdin.readUntilDelimiterOrEof(&buffer, '\n') catch |err| {
-                try stdout.print("\nError reading input: {}\n", .{err});
-                continue;
-            };
+            // Read input line with character-by-character echo
+            buf_len = 0;
+            while (true) {
+                const byte = stdin.readByte() catch |err| {
+                    if (err == error.EndOfStream) {
+                        // EOF received
+                        try stdout.print("\nexit\n", .{});
+                        self.running = false;
+                        return;
+                    }
+                    try stdout.print("\nError reading input: {}\n", .{err});
+                    break;
+                };
 
-            if (line) |input| {
-                // Trim whitespace
-                const trimmed = std.mem.trim(u8, input, " \t\r\n");
-
-                if (trimmed.len == 0) {
-                    continue;
+                if (byte == '\n') {
+                    // Enter pressed - echo newline and process command
+                    try stdout.print("\n", .{});
+                    break;
+                } else if (byte == 127 or byte == 8) {
+                    // Backspace - remove last character if any
+                    if (buf_len > 0) {
+                        buf_len -= 1;
+                        // Echo: move back, overwrite with space, move back
+                        try stdout.print("\x08 \x08", .{});
+                    }
+                } else if (byte >= 32 and byte < 127) {
+                    // Printable character - add to buffer and echo
+                    if (buf_len < buffer.len - 1) {
+                        buffer[buf_len] = byte;
+                        buf_len += 1;
+                        try stdout.writeByte(byte);
+                    }
+                } else if (byte == '\t') {
+                    // Tab - echo as spaces (simple handling)
+                    if (buf_len < buffer.len - 4) {
+                        const spaces = "    ";
+                        @memcpy(buffer[buf_len..][0..4], spaces);
+                        buf_len += 4;
+                        try stdout.print("{s}", .{spaces});
+                    }
                 }
-
-                // Execute the command
-                self.last_exit_code = try self.execute(trimmed, any_stdout);
-            } else {
-                // EOF received
-                try stdout.print("\nexit\n", .{});
-                self.running = false;
+                // Other control characters are ignored
             }
+
+            if (!self.running) break;
+
+            const input = buffer[0..buf_len];
+
+            // Trim whitespace
+            const trimmed = std.mem.trim(u8, input, " \t\r\n");
+
+            if (trimmed.len == 0) {
+                continue;
+            }
+
+            // Execute the command
+            self.last_exit_code = try self.execute(trimmed, any_stdout);
         }
     }
 

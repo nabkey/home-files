@@ -1,36 +1,27 @@
 /**
  * Main Entry Point (Main Thread)
  *
- * This module initializes the terminal UI using xterm.js and connects
+ * This module initializes the terminal UI using ghostty-web and connects
  * it to the Zig WASI kernel running in a Web Worker.
  */
 
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
+import { Terminal, FitAddon } from "ghostty-web";
 import { KernelBridge, isSharedArrayBufferAvailable } from "./io/bridge.js";
-
-// Import xterm.js CSS
-import "@xterm/xterm/css/xterm.css";
 
 // Declare build-time injected global
 declare const __APP_VERSION__: string;
 
 /**
- * Terminal configuration
+ * Terminal configuration (Catppuccin Mocha theme)
  */
 const TERMINAL_OPTIONS = {
   fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
   fontSize: 14,
-  lineHeight: 1.2,
-  cursorBlink: true,
-  cursorStyle: "block" as const,
   theme: {
     background: "#1e1e2e",
     foreground: "#cdd6f4",
     cursor: "#f5e0dc",
-    cursorAccent: "#1e1e2e",
-    selectionBackground: "#585b70",
+    selection: "#585b70",
     black: "#45475a",
     red: "#f38ba8",
     green: "#a6e3a1",
@@ -54,21 +45,13 @@ const TERMINAL_OPTIONS = {
  * Application state
  */
 class ShellApp {
-  private terminal: Terminal;
-  private fitAddon: FitAddon;
+  private terminal: Terminal | null = null;
+  private fitAddon: FitAddon | null = null;
   private bridge: KernelBridge | null = null;
   private isReady = false;
 
   constructor() {
-    // Initialize terminal
-    this.terminal = new Terminal(TERMINAL_OPTIONS);
-    this.fitAddon = new FitAddon();
-
-    // Load addons
-    this.terminal.loadAddon(this.fitAddon);
-
-    // Set up event handlers
-    this.setupTerminal();
+    // Terminal is created in start()
   }
 
   /**
@@ -80,44 +63,44 @@ class ShellApp {
       throw new Error("Terminal container not found");
     }
 
-    // Open terminal in container
-    this.terminal.open(container);
+    // Create terminal and fit addon
+    this.terminal = new Terminal(TERMINAL_OPTIONS);
+    this.fitAddon = new FitAddon();
+    this.terminal.loadAddon(this.fitAddon);
+
+    // Open terminal in container (async - initializes WASM)
+    await this.terminal.open(container);
     this.fitAddon.fit();
 
-    // Re-fit after a short delay to handle mobile layout stabilization
-    setTimeout(() => this.fitAddon.fit(), 100);
+    // Enable automatic resize observation
+    this.fitAddon.observeResize();
 
-    // Try to load WebGL addon for better performance
-    try {
-      const webglAddon = new WebglAddon();
-      this.terminal.loadAddon(webglAddon);
-    } catch (e) {
-      console.warn("WebGL addon not available, using canvas renderer");
-    }
+    // Set up event handlers
+    this.setupTerminal();
 
     // Check for SharedArrayBuffer support
     if (!isSharedArrayBufferAvailable()) {
-      this.terminal.writeln(
-        "\x1b[1;31mError: SharedArrayBuffer is not available.\x1b[0m"
+      this.terminal.write(
+        "\x1b[1;31mError: SharedArrayBuffer is not available.\x1b[0m\r\n"
       );
-      this.terminal.writeln("");
-      this.terminal.writeln(
-        "This application requires SharedArrayBuffer for thread communication."
+      this.terminal.write("\r\n");
+      this.terminal.write(
+        "This application requires SharedArrayBuffer for thread communication.\r\n"
       );
-      this.terminal.writeln("Please ensure the page is served with:");
-      this.terminal.writeln("  - Cross-Origin-Opener-Policy: same-origin");
-      this.terminal.writeln("  - Cross-Origin-Embedder-Policy: require-corp");
-      this.terminal.writeln("");
-      this.terminal.writeln(
-        "If running locally, use: vite --host with proper headers."
+      this.terminal.write("Please ensure the page is served with:\r\n");
+      this.terminal.write("  - Cross-Origin-Opener-Policy: same-origin\r\n");
+      this.terminal.write("  - Cross-Origin-Embedder-Policy: require-corp\r\n");
+      this.terminal.write("\r\n");
+      this.terminal.write(
+        "If running locally, use: vite --host with proper headers.\r\n"
       );
       return;
     }
 
     // Show loading message
-    this.terminal.writeln("\x1b[1;34mZigShell\x1b[0m - Browser-based Shell");
-    this.terminal.writeln("Loading kernel...");
-    this.terminal.writeln("");
+    this.terminal.write("\x1b[1;34mZigShell\x1b[0m - Browser-based Shell\r\n");
+    this.terminal.write("Loading kernel...\r\n");
+    this.terminal.write("\r\n");
 
     // Initialize the kernel bridge
     await this.initKernel();
@@ -127,8 +110,10 @@ class ShellApp {
    * Set up terminal event handlers
    */
   private setupTerminal(): void {
+    if (!this.terminal) return;
+
     // Handle terminal input - kernel handles echo
-    this.terminal.onData((data) => {
+    this.terminal.onData((data: string) => {
       if (this.isReady && this.bridge) {
         // Convert Enter key to newline and send to kernel
         // The kernel echoes input back to stdout
@@ -136,46 +121,38 @@ class ShellApp {
         this.bridge.write(converted);
       }
     });
-
-    // Handle resize
-    window.addEventListener("resize", () => {
-      this.fitAddon.fit();
-    });
-
-    // Handle mobile viewport changes (keyboard, address bar)
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", () => {
-        this.fitAddon.fit();
-      });
-    }
   }
 
   /**
    * Initialize the kernel bridge and start the WASI kernel
    */
   private async initKernel(): Promise<void> {
+    if (!this.terminal) return;
+
+    const terminal = this.terminal;
+
     this.bridge = new KernelBridge({
       onStdout: (data) => {
         // Convert LF to CRLF for terminal
         const converted = data.replace(/\n/g, "\r\n");
-        this.terminal.write(converted);
+        terminal.write(converted);
       },
       onStderr: (data) => {
         const converted = data.replace(/\n/g, "\r\n");
-        this.terminal.write(`\x1b[31m${converted}\x1b[0m`);
+        terminal.write(`\x1b[31m${converted}\x1b[0m`);
       },
       onReady: () => {
         this.isReady = true;
-        this.terminal.writeln("\x1b[1;32mKernel ready.\x1b[0m");
-        this.terminal.writeln("");
+        terminal.write("\x1b[1;32mKernel ready.\x1b[0m\r\n");
+        terminal.write("\r\n");
       },
       onExit: (code) => {
         this.isReady = false;
-        this.terminal.writeln("");
-        this.terminal.writeln(`\x1b[33mKernel exited with code ${code}\x1b[0m`);
+        terminal.write("\r\n");
+        terminal.write(`\x1b[33mKernel exited with code ${code}\x1b[0m\r\n`);
       },
       onError: (message) => {
-        this.terminal.writeln(`\x1b[1;31mError: ${message}\x1b[0m`);
+        terminal.write(`\x1b[1;31mError: ${message}\x1b[0m\r\n`);
       },
     });
 
@@ -185,9 +162,7 @@ class ShellApp {
       const kernelPath = `${import.meta.env.BASE_URL}kernel.wasm`;
       await this.bridge.start(kernelPath);
     } catch (error) {
-      this.terminal.writeln(
-        `\x1b[1;31mFailed to start kernel: ${error}\x1b[0m`
-      );
+      terminal.write(`\x1b[1;31mFailed to start kernel: ${error}\x1b[0m\r\n`);
     }
   }
 
@@ -198,7 +173,12 @@ class ShellApp {
     if (this.bridge) {
       this.bridge.terminate();
     }
-    this.terminal.dispose();
+    if (this.fitAddon) {
+      this.fitAddon.dispose();
+    }
+    if (this.terminal) {
+      this.terminal.dispose();
+    }
   }
 }
 

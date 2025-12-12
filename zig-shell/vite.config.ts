@@ -56,7 +56,7 @@ export default defineConfig({
 
   // Optimize dependencies
   optimizeDeps: {
-    exclude: ["@xterm/xterm"],
+    exclude: ["ghostty-web"],
   },
 
   // Asset handling - include WASM files

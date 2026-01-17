@@ -53,3 +53,8 @@ precmd() { vcs_info }
 zstyle ':vcs_info:git:*' formats ' (%b)'
 setopt PROMPT_SUBST
 PROMPT='%F{cyan}%~%f%F{yellow}${vcs_info_msg_0_}%f %# '
+
+# Load private config if it exists (not tracked in git)
+if [[ -f ~/.config/zsh/private.zsh ]]; then
+    source ~/.config/zsh/private.zsh
+fi

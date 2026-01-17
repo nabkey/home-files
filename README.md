@@ -249,6 +249,35 @@ make release-checksums
 - `dist/configs-linux.tar.gz` - Pre-rendered configs for Linux
 - `dist/checksums.txt` - SHA256 checksums for verification
 
+## Private Configurations
+
+For configs containing secrets (API keys, tokens, work-specific settings) that shouldn't be committed to the repository, homestruct supports private config files.
+
+### How It Works
+
+The generated `.zshrc` automatically sources `~/.config/zsh/private.zsh` if it exists. This file is not managed by homestruct, so you can put anything there without it being overwritten or tracked.
+
+### Setup
+
+Create your private config:
+
+```bash
+mkdir -p ~/.config/zsh
+cat > ~/.config/zsh/private.zsh << 'EOF'
+# Private config - not tracked in git
+
+# API keys and tokens
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"
+export OPENAI_API_KEY="sk-xxxxxxxxxxxx"
+
+# Work-specific aliases
+alias vpn="sudo openconnect vpn.company.com"
+
+# Machine-specific paths
+export PATH="$HOME/work/tools:$PATH"
+EOF
+```
+
 ## Notes on Neovim
 
 For Neovim, we copy the entry point `init.lua` and the directory structure.
